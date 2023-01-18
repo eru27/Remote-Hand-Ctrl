@@ -29,9 +29,12 @@
 int main(int argc , char *argv[])
 {
     int sock;
-    struct sockaddr_in server;
+    struct sockaddr_in server, tcpServer;
     char *message = "ping";
     char server_message[DEFAULT_BUFLEN];
+    char ipAdresa[20];
+    
+    
     //Create socket
     int b_sock = socket(AF_INET , SOCK_DGRAM , 0);
     int broadcastEnable = 1;
@@ -62,6 +65,7 @@ int main(int argc , char *argv[])
         printf("Bytes received: %d\n", read_size);
         server_message[read_size] = '\0';
         printf("Client message: %s\n", server_message);
+    
         char* endMessage = "Received details";
         if( sendto(b_sock , endMessage , strlen(endMessage), 0, (struct sockaddr*) &server, buff_size) == -1)
         {
@@ -69,7 +73,44 @@ int main(int argc , char *argv[])
             return 1;
         }
         
+        strcpy(ipAdresa, inet_ntoa(server.sin_addr));
+        break;
     }
+    
+    printf("%s\n", ipAdresa);
+    sleep(2
+    );
+    
+    printf("ASD");
+    
+    tcpServer.sin_addr.s_addr = inet_addr(ipAdresa);
+    tcpServer.sin_family = AF_INET;
+    tcpServer.sin_port = htons(25566);
+    
+    int tcpSocket = socket(AF_INET , SOCK_STREAM , 0);
+    if (tcpSocket == -1)
+    {
+        printf("Could not create socket");
+    }
+    puts("Socket created");
+    
+    if (connect(tcpSocket , (struct sockaddr *)&tcpServer , sizeof(tcpServer)) < 0)
+    {
+        perror("connect failed. Error");
+        return 1;
+    }
+    
+    
+    char* tcpMsg = "./test_app_servo_ctrl w 3 125";
+    if( send(tcpSocket , tcpMsg , strlen(tcpMsg), 0) < 0)
+    {
+        puts("Send failed");
+        return 1;
+    }
+    
+    
+    
+    
     
 
     puts("Client message:");
