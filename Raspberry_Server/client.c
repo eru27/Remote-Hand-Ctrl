@@ -45,7 +45,8 @@ int main(int argc , char *argv[])
     }
     puts("Socket created");
 
-    server.sin_addr.s_addr = inet_addr("10.1.207.255");
+    //server.sin_addr.s_addr = inet_addr("10.1.207.255");
+    server.sin_addr.s_addr = inet_addr("192.168.0.255");
     server.sin_family = AF_INET;
     server.sin_port = htons(DEFAULT_PORT);
 
@@ -78,35 +79,51 @@ int main(int argc , char *argv[])
     }
     
     printf("%s\n", ipAdresa);
-    sleep(2
-    );
+    sleep(2);
     
-    printf("ASD");
+    printf("ASD\n");
+    
     
     tcpServer.sin_addr.s_addr = inet_addr(ipAdresa);
     tcpServer.sin_family = AF_INET;
     tcpServer.sin_port = htons(25566);
+   
+    int a = 0;
     
+    while(a != -1)
+    {
+        printf("usao u novi\n");
+         char tcpMessage[20];
+         
+         gets(tcpMessage);
     int tcpSocket = socket(AF_INET , SOCK_STREAM , 0);
+    
     if (tcpSocket == -1)
     {
         printf("Could not create socket");
     }
     puts("Socket created");
+        
+        if (connect(tcpSocket , (struct sockaddr *)&tcpServer , sizeof(tcpServer)) < 0)
+        {
+            perror("connect failed. Error");
+            return 1;
+        }
     
-    if (connect(tcpSocket , (struct sockaddr *)&tcpServer , sizeof(tcpServer)) < 0)
-    {
-        perror("connect failed. Error");
-        return 1;
+    
+   // char* tcpMsg = "./test_app_servo_ctrl w 3 125";
+        char* tcpMsg = "r 3";
+        if( send(tcpSocket , tcpMessage , strlen(tcpMessage), 0) < 0)
+        {
+            perror("send failed");
+            return 1;
+        
+        }
+        close(tcpSocket);
+        
     }
+
     
-    
-    char* tcpMsg = "./test_app_servo_ctrl w 3 125";
-    if( send(tcpSocket , tcpMsg , strlen(tcpMsg), 0) < 0)
-    {
-        puts("Send failed");
-        return 1;
-    }
     
     
     

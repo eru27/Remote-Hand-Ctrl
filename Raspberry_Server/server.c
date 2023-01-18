@@ -97,12 +97,6 @@ int main(int argc , char *argv[])
         perror("recv failed");
     }
     
-    
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(DEFAULT_PORT);
-    
-    
     int tcpSocket = socket(AF_INET , SOCK_STREAM , 0);
     tcpServer.sin_family = AF_INET;
     tcpServer.sin_addr.s_addr = INADDR_ANY;
@@ -135,8 +129,15 @@ int main(int argc , char *argv[])
     {
         printf("Bytes received: %d\n", read_size);
         client_message[read_size] = '\0';
-        printf(client_message);
-        system(client_message);
+        
+        char input = client_message[0];
+        printf("%c", input);
+        //system(client_message);
+        
+        //if(strcmp("r", client_message[0]) == 0)
+        //{
+          //  printf("les Go");
+        //}
     }
 
     if(read_size == 0)
