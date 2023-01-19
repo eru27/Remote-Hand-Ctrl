@@ -4,11 +4,10 @@
 #include <string.h> // strerror()
 #include <unistd.h> // file ops
 #include <fcntl.h> // open() flags
-#include<stdio.h>
-#include<string.h>    //strlen
-#include<sys/socket.h>
-#include<arpa/inet.h> //inet_addr
-#include<unistd.h>    //write
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <arpa/inet.h> //inet_addr
+#include <stdlib.h>
 
 #define DEV_FN "/dev/servo_ctrl"
 #define USERNAME_MAX_LENGTH 15
@@ -160,7 +159,8 @@ int main(int argc, char** argv){
     {
         printf("Bytes received: %d\n", read_size);
         client_message[read_size] = '\0';
-      
+	
+	//When rasp gets "ping" message, its send its username to the PC
         if(strcmp("ping", client_message) == 0) 
         {
             if(sendto(udpListenSocket , username , strlen(username), 0, (struct sockaddr*) &client, buff_size) == -1)
@@ -169,6 +169,7 @@ int main(int argc, char** argv){
                 return 1;
             }   
         }
+	//We check if the PC has received our details and ends the UDP message listening 
         else if(strcmp("Received details", client_message) == 0)
         {
             break;
@@ -180,11 +181,12 @@ int main(int argc, char** argv){
         perror("recv failed");
     }
     
+    //Closing the UDP socket
     close(udpListenSocket);
     puts("UDP Socket Closed\n");
     
 	
-	
+    //Binding the TCP socket
     if( bind(tcpSocket,(struct sockaddr *)&tcpServer , sizeof(tcpServer)) < 0)
     {
         //print the error message
@@ -193,13 +195,13 @@ int main(int argc, char** argv){
     }
     puts("bind done");
     
+    //Listen to 1 PC at a time
     listen(tcpSocket , 1);
-    //Listen
+
     while(1)
     {
-	printf("Opet usao");
-    
-    
+	//Accept an incoming TCP connection
+	puts("Waiting for incoming connections...");
 	int client_sock = accept(tcpSocket, (struct sockaddr *)&tcpServer, (socklen_t*)&c);
 	if (client_sock < 0)
 	{
@@ -208,9 +210,8 @@ int main(int argc, char** argv){
 	}
 	puts("Connection accepted");
     
-	//Accept and incoming connection
-	puts("Waiting for incoming connections...");
-    
+
+	
 	while( (read_size = recv(client_sock , client_message , DEFAULT_BUFLEN , 0)) > 0 )
 	{
 	    int fd;
@@ -225,9 +226,11 @@ int main(int argc, char** argv){
 	    client_message[read_size] = '\0';
 	    printf("%s\n", client_message);
 	    char returnMessage[300];
+	    char tempMessage[150];
 	    char arg1 = client_message[0];
 	
-	    if(arg1 == 'w'){
+	    if(arg1 == 'w')
+	    {
 		int arg2 = (int)(client_message[2]) - 48;
 		char arg3Char[3];
 		int i = 0;
@@ -237,19 +240,18 @@ int main(int argc, char** argv){
 		}
 		
 		arg3Char[strlen(client_message) - 3] = '\0';
-		
-		printf("Arg3: %s\n", arg3Char);
-		    
 		int arg3 = atoi(arg3Char);
-		
-		
-		
-		//strcat(returnMessage, ("duty = %d\n", duty));
+		 
 		printf("duty = %d\n", arg3);
-		printf("place: %d\n", arg2);
+		sprintf(tempMessage, "duty = %d\n", arg3);
+		strcat(returnMessage, tempMessage);
+		tempMessage[0] = '\0';
+	    
 		duties[arg2] = arg3; // [permilles]
 		
 		for(int i = 0; i < N_SERVOS; i++){
+		    sprintf(tempMessage, "duties[%d] = %d\n", i, duties[i]);
+		    strcat(returnMessage, tempMessage);
 		    printf("duties[%d] = %d\n", i, duties[i]);
 		}
 		
@@ -258,21 +260,48 @@ int main(int argc, char** argv){
 		    fprintf(stderr, "ERROR: write went wrong!\n");
 		    return 4;
 		}
+		printf("End.");
+		strcat(returnMessage, "End.");
+		printf(returnMessage);
+		
+		if( sendto(client_sock , returnMessage , strlen(returnMessage), 0, (struct sockaddr*) &client, buff_size) == -1)
+		{
+		    puts("Send failed");
+		    return 1;
+		}
+		
+		returnMessage[0] = '\0';
+		tempMessage[0] = '\0';
 		close(client_sock);
 	    }else if(arg1 == 'r'){
 		puts("Usao u read");
 		int r = read(fd, (char*)&duties, sizeof(duties));
 		if(r != sizeof(duties)){
+			
 			fprintf(stderr, "ERROR: read went wrong!\n");
 			return 4;
 		}
 		for(int i = 0; i < N_SERVOS; i++){
+			sprintf(tempMessage, "duties[%d] = %d\n", i, duties[i]);
+			strcat(returnMessage, tempMessage);
 			printf("duties[%d] = %d\n", i, duties[i]);
 		}
 		int arg2 = (int)(client_message[2]) - 48;
 		printf("%d\n", arg2);
 		duty = duties[arg2]; // [permilles]
 		printf("duty = %d\n", duty);
+		sprintf(tempMessage, "duty = %d\n", duty);
+		strcat(returnMessage, tempMessage);
+		
+		
+		if( sendto(client_sock , returnMessage , strlen(returnMessage), 0, (struct sockaddr*) &client, buff_size) == -1)
+		{
+		    puts("Send failed");
+		    return 1;
+		}
+		
+		returnMessage[0] = '\0';
+		tempMessage[0] = '\0';
 		close(client_sock);	
 	    }
 	
@@ -282,7 +311,7 @@ int main(int argc, char** argv){
 	   
 	}
 	
-	printf("Socket closed");
+	printf("Socket closed\n");
     }
 
     if(read_size == 0)

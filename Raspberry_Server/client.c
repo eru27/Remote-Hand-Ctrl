@@ -92,7 +92,7 @@ int main(int argc , char *argv[])
     
     while(a != -1)
     {
-        printf("usao u novi\n");
+        
          char tcpMessage[20];
          
          gets(tcpMessage);
@@ -119,6 +119,14 @@ int main(int argc , char *argv[])
             return 1;
         
         }
+        
+        while( (read_size = recv(tcpSocket , server_message , DEFAULT_BUFLEN , 0)) > 0 )
+        {
+            server_message[read_size] = '\0';
+            printf(server_message);
+            break;
+        }
+        
         close(tcpSocket);
         
     }
