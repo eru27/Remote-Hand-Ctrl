@@ -211,7 +211,7 @@ static void *listen_raspberries(void *rasp)
 
         raspberries[raspbberies_count].info = raspberry_adr.sin_addr;
         raspbberies_count++;
-
+ 
         //load info in array and call handle with pointer
             //send back conformation
         if(sendto(sock , return_message , strlen(return_message), 0, (struct sockaddr*) &raspberries[i].info, addrlen) == -1)
@@ -318,7 +318,7 @@ int main()
         }
         else if (command[2] == 'r')
         {
-            sscanf(command, "%d %c %d %d", &index, &mode, &servo_id);
+            sscanf(command, "%d %c %d", &index, &mode, &servo_id);
             duty = 0;
         }
         else
