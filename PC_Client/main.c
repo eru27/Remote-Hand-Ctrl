@@ -9,7 +9,8 @@
 #define MAX_RASP_COUNT 10
 #define DEFAULT_BUFF_SIZE 256
 
-const unsigned short BROADCAST_PORT = 25565;
+const unsigned short BROADCAST_PORT = 25567;
+const unsigned short UDP_PORT = 25565;
 const unsigned short TCP_PORT = 25566;
 
 
@@ -37,7 +38,7 @@ int ping_rasp()
     bcast_sock = socket(AF_INET , SOCK_DGRAM , 0);
     if (bcast_sock == -1)
     {
-        puts("Error: Could not create UDP socket\n");
+        printf("Error: Could not create UDP socket\n");
 
         return 1;
     }
@@ -47,7 +48,7 @@ int ping_rasp()
     ret = setsockopt(bcast_sock, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
     if (ret == -1)
     {
-        puts("Error: Could not set broadcast socket options. Check permitions.\n");
+        printf("Error: Could not set broadcast socket options. Check permitions.\n");
 
         close(bcast_sock);
 
@@ -60,14 +61,14 @@ int ping_rasp()
 
     broadcast_addr.sin_family = AF_INET;
     broadcast_addr.sin_port = htons(BROADCAST_PORT);
-    broadcast_addr.sin_addr.s_addr = htonl(INADDR_BROADCAST); //konverzija ??????
+    broadcast_addr.sin_addr.s_addr = INADDR_BROADCAST;
 
     // Send ping signal
     ret = sendto(bcast_sock, ping, strlen(ping), 0, (struct sockaddr*) &broadcast_addr, addr_len);
     
     if (ret != strlen(ping))
     {
-        puts("Error: broadcast message not sent.\n");
+        printf("Error: broadcast message not sent.\n");
 
         close(bcast_sock);
 
@@ -81,12 +82,12 @@ int ping_rasp()
 
 void print_raspberries(struct raspberry raspberries[MAX_RASP_COUNT])
 {
-    puts("Raspberries available for connection: \n");
+    printf("\nRaspberries available for connection:\n");
 
     int i;
     for (i = 0; i < raspbberies_count; i++)
     {
-        printf("%d. %s\n", i, raspberries[i].name);
+        printf("%d. %s [%s]\n", i, raspberries[i].name, inet_ntoa(raspberries[i].info));
     }
 
     printf("\n");
@@ -97,14 +98,14 @@ int ping_listen()
     int sock;
     int addr_len;
     struct sockaddr_in address;
-    char *message = "ping\0";
+    char *message = "wakeup\0";
 
     int ret;
 
     sock = socket(AF_INET, SOCK_DGRAM , 0);
     if (sock == -1)
     {
-        puts("Error: Could not create UDP socket2.\n");
+        printf("Error: Could not create UDP socket2.\n");
 
         return 1;
     }
@@ -113,12 +114,12 @@ int ping_listen()
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = inet_addr("127.0.0.1");
-    address.sin_port = htons(25565);
+    address.sin_port = htons(UDP_PORT);
 
     int buff_size = sizeof(struct sockaddr_in); 
     if(sendto(sock , message , strlen(message), 0, (struct sockaddr*) &address, buff_size) == -1)
     {
-        puts("Error: Could not ping listen. Listening socket might not close.\n");
+        printf("Error: Could not ping listen. Listening socket might not close.\n");
 
         close(sock);
 
@@ -132,14 +133,15 @@ int ping_listen()
 
 static void *listen_raspberries(void *rasp)
 {
-    //make socket
     int sock;
     int addr_len;
     struct sockaddr_in address, raspberry_adr;
     socklen_t addrlen;
-    int i;
-    char *message = "ping\0";
+
+    int i, recv;
+
     char *return_message = "Received details\0";
+    char temp_name[DEFAULT_BUFF_SIZE];
 
     struct raspberry *raspberries = (struct raspberry *) rasp;
 
@@ -149,26 +151,24 @@ static void *listen_raspberries(void *rasp)
     if (sock == -1)
     {
         pthread_mutex_lock(&mutex_all);
-            puts("Error: Could not create UDP listening socket.\n");
-            puts("Terminating thread...\n");
+            printf("Error: Could not create UDP listening socket.\n");
+            printf("Terminating thread...\n");
         pthread_mutex_unlock(&mutex_all);
 
         return;
     }
 
-    //own ip and udp port struct // ---ip any---
     memset(&address, 0, sizeof(address));
-
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = inet_addr("0.0.0.0");
-    address.sin_port = htons(25565);
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(UDP_PORT);
 
     //bind socket
     if (bind(sock, (const struct sockaddr *)&address, sizeof(address)) < 0)
     {
         pthread_mutex_lock(&mutex_all);
-            puts("Error: Binding listening socket failed.\n");
-            puts("Terminating thread...\n");
+            printf("Error: Binding listening socket failed.\n");
+            printf("Terminating thread...\n");
         pthread_mutex_unlock(&mutex_all);
 
         close(sock);
@@ -176,28 +176,23 @@ static void *listen_raspberries(void *rasp)
         return;
     }
 
-    //for 0 to 9
     for (int i = 0; i < MAX_RASP_COUNT; i++)
     {
-        pthread_mutex_lock(&mutex_all);
-        //check for term flag
-        
-
-        //listen
         addrlen = sizeof(raspberry_adr);
 
-        pthread_mutex_unlock(&mutex_all);
-        if(recvfrom(sock, raspberries[raspbberies_count].name, DEFAULT_BUFF_SIZE, 0, &raspberry_adr, &addrlen) < 0)
+        if((recv = recvfrom(sock, temp_name, DEFAULT_BUFF_SIZE, 0, (struct sockaddr*) &raspberry_adr, &addrlen)) < 0)
         {
             pthread_mutex_lock(&mutex_all);
-            puts("Error: Failed to recieve.\n");
-            pthread_mutex_unlock(&mutex_all);
+            printf("Error: Failed to recieve.\n");
+            
 
             if (terminate_listen == 1)
             {
+                pthread_mutex_unlock(&mutex_all);
                 break;
             }
 
+            pthread_mutex_unlock(&mutex_all);
             continue;
         }
 
@@ -209,15 +204,17 @@ static void *listen_raspberries(void *rasp)
             break;
         }
 
+        // Save raspberry data
+        strcpy(raspberries[raspbberies_count].name, temp_name);
+        raspberries[raspbberies_count].name[recv] = '\0';
         raspberries[raspbberies_count].info = raspberry_adr.sin_addr;
-        raspbberies_count++;
  
-        //load info in array and call handle with pointer
-            //send back conformation
-        if(sendto(sock , return_message , strlen(return_message), 0, (struct sockaddr*) &raspberries[i].info, addrlen) == -1)
+        if(sendto(sock , return_message , strlen(return_message), 0, (struct sockaddr*) &raspberry_adr, addrlen) == -1)
         {
-            puts("Error: Failed to send a conformation.");
+            printf("Error: Failed to send a conformation to %s at [%s].", raspberries[i].name, inet_ntoa(raspberries[i].info));
         }  
+
+        raspbberies_count++;
 
         pthread_mutex_unlock(&mutex_all);
     }
@@ -253,11 +250,10 @@ int main()
     int ret_thr, ret_ping;
     struct raspberry raspberries[MAX_RASP_COUNT];
 
-    char input;
+    char *input = "\0";
     int i;
 
-    //hi hello
-    pthread_mutex_lock(&mutex_all); //lock mutex - so i can unlock it safely
+    pthread_mutex_lock(&mutex_all);
 
     // Listen
     pthread_t listen_thr;
@@ -265,6 +261,8 @@ int main()
 
     do
     {
+        printf("\nSearching for available raspberries...\n");
+
         // Ping
         ret_ping = ping_rasp();
         if (ret_ping != 0)
@@ -272,26 +270,24 @@ int main()
             break;
         }
 
-        puts("Searching for available raspberries...\n");
-
         pthread_mutex_unlock(&mutex_all);
 
-        // So listen can execute
+        // Sleep so listen can execute
         sleep(5);
 
         pthread_mutex_lock(&mutex_all);
 
         print_raspberries(raspberries);
 
-        // Check yn
-        printf("Check again? (Y/n) ");
-        scanf("%c", &input);
-        printf("\n");
-    } while (input == 'Y' || input == 'y');
+        // Check y/n
+        printf("Check again? (y/N) ");
+        scanf("%s", &input);
+
+    } while (input[0] == 'Y' || input[0] == 'y');
     
-    //locked mutex
+    // Mutex still locked
     terminate_listen = 1;
-    ping_listen();
+    ping_listen(); // Ping thread so it gets out of recvfrom() function and terminates
 
     pthread_mutex_unlock(&mutex_all);
 
@@ -300,15 +296,13 @@ int main()
     int index, servo_id, duty;
     char mode;
     char command[DEFAULT_BUFF_SIZE] = {};
-    
-    
 
     while (1)
     {
         printf("\nFormat komande: [broj zeljene maline] [r/w] [broj motora (0-3)] [w ? ugao pomeranja (0 - 1000)]. Za izlazak upisite 'exit'.\n");
         fgets(command, DEFAULT_BUFF_SIZE, stdin);
         
-        if (command[0] == 'e')
+        if (strcmp(command, "exit") == 0)
         {
             break;
         }
@@ -323,13 +317,13 @@ int main()
         }
         else
         {
-            puts("Error: Invalid input format.\n");
+            printf("Error: Invalid input format.\n");
             continue;
         }
 
         if (!check_arguments(index, mode, servo_id, duty))
         {
-            puts("Error: Invalid input values.\n");
+            printf("Error: Invalid input values.\n");
             continue;
         }
 
@@ -337,31 +331,37 @@ int main()
 
         struct sockaddr_in current_rasp;
         current_rasp.sin_family = AF_INET;
-        current_rasp.sin_port = htons(25566);
+        current_rasp.sin_port = htons(TCP_PORT);
+        current_rasp.sin_addr.s_addr = raspberries[index].info.s_addr;
         
         if (tcpSocket == -1)
         {
-            printf("Error: Could not create TCP socket.");
+            printf("Error: Could not create TCP socket.\n");
             return 1;
         }
 
-        current_rasp.sin_addr.s_addr = raspberries[index].info.s_addr;
-
         if (connect(tcpSocket, (struct sockaddr *)&current_rasp, sizeof(current_rasp)) < 0)
         {
-            puts("Error: Connection failed.\n");
+            printf("Error: Connection failed.\n");
             continue;
         }
 
-        char *tcpMessage[DEFAULT_BUFF_SIZE] = {};
-        sprintf(tcpMessage, "%c %d %d", mode, servo_id, duty);
+        char tcpMessage[DEFAULT_BUFF_SIZE] = {};
+        if (mode == 'w')
+        {
+            sprintf(tcpMessage, "%c %d %d", mode, servo_id, duty);
+        }
+        else
+        {
+            sprintf(tcpMessage, "%c %d", mode, servo_id);
+        }
+        
 
         if(send(tcpSocket , tcpMessage , strlen(tcpMessage), 0) < 0)
         {
-            puts("Error: Send failed.\n");
+            printf("Error: Send failed.\n");
             close(tcpSocket);
             continue;
-        
         }
 
         int read_size;
@@ -370,19 +370,12 @@ int main()
         while((read_size = recv(tcpSocket , server_message , DEFAULT_BUFF_SIZE , 0)) > 0 )
         {
             server_message[read_size] = '\0';
-            puts(server_message);
+            printf("%s", server_message);
             break;
         }
         
         close(tcpSocket);
-        
-
-    //try tcp
-    //comunicate
-    //close sock
     }
-    //join listen
-
 
     return 0;
 }

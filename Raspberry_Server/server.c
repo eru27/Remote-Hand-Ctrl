@@ -23,13 +23,14 @@
 #include<unistd.h>    //write
 
 #define USERNAME_MAX_LENGTH 15
-#define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT   25565
+#define DEFAULT_BUFLEN      512
+#define BROADCAST_PORT      25567
+#define UDP_PORT            25565
+#define TCP_PORT            25566
 
 int main(int argc , char *argv[])
 {
     int socket_desc , c , read_size;
-    int startTCP = 0;
     struct sockaddr_in server , client, tcpServer;
     char client_message[DEFAULT_BUFLEN];
    
@@ -56,16 +57,16 @@ int main(int argc , char *argv[])
     //Prepare the sockaddr_in structure
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(DEFAULT_PORT);
+    server.sin_port = htons(BROADCAST_PORT);
 
     //Bind
     if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
     {
         //print the error message
-        perror("bind failed. Error");
+        perror("UDP socket bind failed. Error");
         return 1;
     }
-    puts("bind done");
+    puts("UDP socket bind done");
 
     //Accept and incoming connection
     puts("Waiting for incoming connections...");
@@ -77,6 +78,8 @@ int main(int argc , char *argv[])
     {
         printf("Bytes received: %d\n", read_size);
         client_message[read_size] = '\0';
+
+        client.sin_port = htons(UDP_PORT);
       
         if(strcmp("ping", client_message) == 0) 
         {
@@ -94,22 +97,22 @@ int main(int argc , char *argv[])
     }   
     if(read_size == -1)
     {
-        perror("recv failed");
+        perror("Recieve failed");
     }
     
     int tcpSocket = socket(AF_INET , SOCK_STREAM , 0);
     tcpServer.sin_family = AF_INET;
     tcpServer.sin_addr.s_addr = INADDR_ANY;
-    tcpServer.sin_port = htons(25566);
+    tcpServer.sin_port = htons(TCP_PORT);
     
     
     if( bind(tcpSocket,(struct sockaddr *)&tcpServer , sizeof(tcpServer)) < 0)
     {
         //print the error message
-        perror("bind failed. Error");
+        perror("TCP socket bind failed. Error");
         return 1;
     }
-    puts("bind done");
+    puts("TCP socket bind done");
 
     //Listen
     listen(tcpSocket , 1);
