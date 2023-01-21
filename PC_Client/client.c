@@ -68,7 +68,7 @@ int ping_rasp()
     
     if (ret != strlen(ping))
     {
-        printf("Error: broadcast message not sent.\n");
+        printf("Error: Broadcast message not sent.\n");
 
         close(bcast_sock);
 
@@ -179,7 +179,6 @@ static void *listen_raspberries(void *rasp)
     for (int i = 0; i < MAX_RASP_COUNT; i++)
     {
         addrlen = sizeof(raspberry_adr);
-
         if((recv = recvfrom(sock, temp_name, DEFAULT_BUFF_SIZE, 0, (struct sockaddr*) &raspberry_adr, &addrlen)) < 0)
         {
             pthread_mutex_lock(&mutex_all);
@@ -212,7 +211,7 @@ static void *listen_raspberries(void *rasp)
         if(sendto(sock , return_message , strlen(return_message), 0, (struct sockaddr*) &raspberry_adr, addrlen) == -1)
         {
             printf("Error: Failed to send a conformation to %s at [%s].", raspberries[i].name, inet_ntoa(raspberries[i].info));
-        }  
+        }
 
         raspbberies_count++;
 
@@ -250,7 +249,7 @@ int main()
     int ret_thr, ret_ping;
     struct raspberry raspberries[MAX_RASP_COUNT];
 
-    char *input = "\0";
+    char input[DEFAULT_BUFF_SIZE] = {};
     int i;
 
     pthread_mutex_lock(&mutex_all);
@@ -280,7 +279,7 @@ int main()
         print_raspberries(raspberries);
 
         // Check y/n
-        printf("Check again? (y/N) ");
+        printf("Check again? (Y/n) ");
         scanf("%s", &input);
 
     } while (input[0] == 'Y' || input[0] == 'y');
@@ -302,7 +301,7 @@ int main()
         printf("\nFormat komande: [broj zeljene maline] [r/w] [broj motora (0-3)] [w ? ugao pomeranja (0 - 1000)]. Za izlazak upisite 'exit'.\n");
         fgets(command, DEFAULT_BUFF_SIZE, stdin);
         
-        if (strcmp(command, "exit") == 0)
+        if (strcmp(command, "exit\n") == 0)
         {
             break;
         }
