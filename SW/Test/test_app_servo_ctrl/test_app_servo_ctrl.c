@@ -12,7 +12,9 @@
 #define DEV_FN "/dev/servo_ctrl"
 #define USERNAME_MAX_LENGTH 15
 #define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT   25565
+#define BROADCAST_PORT 25567
+#define UDP_PORT       25565
+#define TCP_PORT       25566
 #define N_SERVOS 4
 
 
@@ -121,12 +123,12 @@ int main(int argc, char** argv){
     setsockopt(udpListenSocket, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
     udpServer.sin_family = AF_INET;
     udpServer.sin_addr.s_addr = INADDR_ANY;
-    udpServer.sin_port = htons(DEFAULT_PORT);
+    udpServer.sin_port = htons(BROADCAST_PORT);
     
     tcpSocket = socket(AF_INET , SOCK_STREAM , 0);
     tcpServer.sin_family = AF_INET;
     tcpServer.sin_addr.s_addr = INADDR_ANY;
-    tcpServer.sin_port = htons(25566);
+    tcpServer.sin_port = htons(TCP_PORT);
     
     
     
@@ -159,8 +161,10 @@ int main(int argc, char** argv){
     {
         printf("Bytes received: %d\n", read_size);
         client_message[read_size] = '\0';
+
+		client.sin_port = htons(UDP_PORT);
 	
-	//When rasp gets "ping" message, its send its username to the PC
+	//When rasp gets "ping" message, it sends its username to the PC
         if(strcmp("ping", client_message) == 0) 
         {
             if(sendto(udpListenSocket , username , strlen(username), 0, (struct sockaddr*) &client, buff_size) == -1)
@@ -178,7 +182,7 @@ int main(int argc, char** argv){
     }   
     if(read_size == -1)
     {
-        perror("recv failed");
+        perror("Recv failed");
     }
     
     //Closing the UDP socket
@@ -190,10 +194,10 @@ int main(int argc, char** argv){
     if( bind(tcpSocket,(struct sockaddr *)&tcpServer , sizeof(tcpServer)) < 0)
     {
         //print the error message
-        perror("bind failed. Error");
+        perror("Bind failed. Error");
         return 1;
     }
-    puts("bind done");
+    puts("Bind done");
     
     //Listen to 1 PC at a time
     listen(tcpSocket , 1);

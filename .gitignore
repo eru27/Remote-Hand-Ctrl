@@ -1,6 +1,4 @@
 .vscode/
 *.out
 *.o
-obj/
-server
-client
+Raspberry_Server/
